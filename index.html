@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PSA 3D — Protein Sequence Analyzer</title>
+  <link rel="stylesheet" href="styles.css" />
+  <!-- Chart.js, Three.js (r147 UMD + OrbitControls), and 3Dmol.js for static / file:// compatibility -->
+  <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/3dmol@2.4.2/build/3Dmol-min.js"></script>
+  <script defer src="js/constants.js"></script>
+  <script defer src="js/analyzer.js"></script>
+  <script defer src="js/charts.js"></script>
+  <script defer src="js/landing.js"></script>
+  <script defer src="js/simulation.js"></script>
+  <script defer src="js/structure.js"></script>
+  <script defer src="js/app.js"></script>
+</head>
+<body>
+  <!-- =========================================================
+       LANDING PAGE (Floating 3D Protein Graphics + Overview)
+       ========================================================= -->
+  <div id="landing-view" class="landing-view">
+    <div id="landing-canvas" class="landing-canvas-bg" aria-hidden="true"></div>
+    <div class="landing-aurora" aria-hidden="true"></div>
+
+    <header class="landing-nav">
+      <div class="brand">
+        <div class="brand-badge" aria-hidden="true">PSA</div>
+        <div>
+          <span class="brand-title">Protein Sequence <span class="brand-tag">3D</span></span>
+        </div>
+      </div>
+      <div class="landing-nav-links">
+        <button id="btn-landing-theme" class="btn btn-sm" type="button">Light Mode</button>
+        <button id="btn-landing-enter-top" class="btn btn-primary btn-sm" type="button">Open Workspace</button>
+      </div>
+    </header>
+
+    <main class="landing-hero">
+      <div class="hero-content">
+        <div class="hero-eyebrow">
+          <span class="hero-dot"></span>
+          Client-Side Bioinformatics Suite &middot; Zero Backend
+        </div>
+        <h1 class="hero-title">
+          Decode, Simulate &amp; Explore <span class="gradient-text">Protein Sequences</span> in 3D
+        </h1>
+        <p class="hero-desc">
+          Paste any FASTA or raw polypeptide chain to watch it synthesize residue-by-residue in 3D,
+          inspect amino-acid composition across three switchable grouping models, compute molecular weight,
+          EMBOSS pI, GRAVY, and Kyte-Doolittle hydropathy profiles, and load experimental or AI-predicted
+          structures from RCSB PDB, AlphaFold DB, and ESMFold.
+        </p>
+        <div class="hero-actions">
+          <button id="btn-landing-launch" class="btn btn-primary btn-hero" type="button">
+            Launch Analyzer Workspace
+          </button>
+          <button id="btn-landing-demo-ubiq" class="btn btn-hero" type="button">
+            Try Ubiquitin (1UBQ)
+          </button>
+          <button id="btn-landing-demo-35k" class="btn btn-hero" type="button">
+            35,000-aa Stress Demo
+          </button>
+        </div>
+      </div>
+
+      <section class="landing-features" aria-label="Platform capabilities">
+        <article class="glass-feature">
+          <div class="feature-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M4 7h16M4 12h10M4 17h13" />
+            </svg>
+          </div>
+          <h3>O(n) Sequence Validation</h3>
+          <p>Handles FASTA, multi-FASTA, file uploads, and 35,000+ residue chains with non-standard code warnings and zero freezing.</p>
+        </article>
+        <article class="glass-feature">
+          <div class="feature-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M12 3v9l6.5 3.5" />
+            </svg>
+          </div>
+          <h3>Switchable Grouping Models</h3>
+          <p>Toggle between Side-chain property, Size, and Structure/function models with synchronized colors across charts and 3D views.</p>
+        </article>
+        <article class="glass-feature">
+          <div class="feature-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z" />
+            </svg>
+          </div>
+          <h3>3D Formation Simulation</h3>
+          <p>Depicts translation-style residue elongation and long-chain assembly via InstancedMesh before unlocking detailed metrics.</p>
+        </article>
+        <article class="glass-feature">
+          <div class="feature-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="7" cy="12" r="3" />
+              <circle cx="17" cy="7" r="3" />
+              <circle cx="17" cy="17" r="3" />
+              <path d="M9.6 10.7l4.8-2.4M9.6 13.3l4.8 2.4" />
+            </svg>
+          </div>
+          <h3>Real 3D Structure Viewer</h3>
+          <p>Inspect experimental RCSB PDB entries, AlphaFold DB predictions, or fold short sequences (&le;400 aa) live with ESMFold.</p>
+        </article>
+      </section>
+    </main>
+  </div>
+
+  <!-- =========================================================
+       WORKSPACE SHELL (Left Sidebar + Topbar + View Panels)
+       ========================================================= -->
+  <div id="workspace-view" class="workspace-shell hidden">
+    <div id="sidebar-backdrop" class="sidebar-backdrop"></div>
+
+    <!-- Left Sidebar Menu -->
+    <aside id="sidebar" class="sidebar" aria-label="Workspace navigation">
+      <div class="brand-row">
+        <div class="brand">
+          <div class="brand-badge" aria-hidden="true">PSA</div>
+          <div>
+            <div class="brand-title">Protein <span class="brand-tag">3Dai</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sidebar-project-box">
+        <span class="sidebar-section-label">Active Protein / Demo</span>
+        <select id="sidebar-example-select" class="select select-full" aria-label="Quick load example protein">
+          <option value="">-- Load example protein --</option>
+        </select>
+      </div>
+
+      <nav class="sidebar-nav" aria-label="Section switcher">
+        <button class="nav-item active" data-view="overview" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+          <span>Overview</span>
+        </button>
+        <button class="nav-item" data-view="input" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg>
+          <span>Sequence Input</span>
+        </button>
+        <button class="nav-item" data-view="formation" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l9 5v10l-9 5-9-5V7l9-5z"/><path d="M12 22V12M21 7l-9 5-9-5"/></svg>
+          <span>3D Formation</span>
+        </button>
+        <button class="nav-item" data-view="composition" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+          <span>Composition</span>
+          <span id="nav-badge-len" class="nav-badge">—</span>
+        </button>
+        <button class="nav-item" data-view="groups" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3v9l7 4"/></svg>
+          <span>Group Models</span>
+        </button>
+        <button class="nav-item" data-view="hydrophobicity" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17l5-5 4 4 9-9"/></svg>
+          <span>Hydrophobicity</span>
+        </button>
+        <button class="nav-item" data-view="structure" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="12" r="3"/><circle cx="18" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="M8.7 10.7l6.6-3.4M8.7 13.3l6.6 3.4"/></svg>
+          <span>Real Structure</span>
+        </button>
+        <button class="nav-item" data-view="methods" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg>
+          <span>Methods &amp; Export</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-status-card">
+        <span class="sidebar-section-label">Chain Status</span>
+        <div class="status-row-top">
+          <span id="sidebar-status-title">No Sequence</span>
+          <span id="sidebar-status-pct" class="mono">0%</span>
+        </div>
+        <div class="progress-track">
+          <div id="sidebar-progress-fill" class="progress-fill"></div>
+        </div>
+        <span id="sidebar-status-sub" class="hint-text">Load or paste a protein sequence</span>
+        <button id="btn-back-home" class="btn btn-sm" type="button">Landing Page</button>
+      </div>
+
+      <div class="sidebar-footer">
+        <div>
+          <strong id="sidebar-user-label">Bioinformatics Lab</strong><br />
+          <span class="hint-text">Client-side O(n) Engine</span>
+        </div>
+        <button id="btn-theme-toggle" class="btn btn-sm" type="button" title="Toggle theme">Light</button>
+      </div>
+    </aside>
+
+    <!-- Main Right Column -->
+    <div class="main-column">
+      <header class="topbar">
+        <div class="topbar-left">
+          <button id="btn-mobile-menu" class="btn btn-sm mobile-menu-btn" type="button" aria-label="Open menu">
+            Menu
+          </button>
+          <div class="breadcrumb">
+            <span>Workspace</span>
+            <span>&rsaquo;</span>
+            <span id="breadcrumb-seq">No sequence</span>
+            <span>&rsaquo;</span>
+            <strong id="breadcrumb-view">Overview</strong>
+          </div>
+        </div>
+        <div class="topbar-actions">
+          <span id="topbar-model-pill" class="pill hidden">EMBOSS pKa</span>
+          <button id="btn-new-analysis" class="btn btn-primary btn-sm" type="button">+ Run New Analysis</button>
+          <button id="btn-export-csv" class="btn btn-sm" type="button" disabled>Export CSV</button>
+          <button id="btn-top-methods" class="btn btn-sm" type="button" title="Methods & Formulas">?</button>
+        </div>
+      </header>
+
+      <main class="stage-content">
+        <!-- Global Notification Banners (Errors, Warnings, Multi-FASTA, Offline Chart warning) -->
+        <div id="multi-fasta-banner" class="banner banner-info hidden" role="status">
+          <div class="multi-fasta-bar">
+            <strong id="multi-fasta-msg">Multi-FASTA detected.</strong>
+            <label for="record-select">Active record:</label>
+            <select id="record-select" class="select"></select>
+          </div>
+        </div>
+
+        <div id="error-banner" class="banner banner-error hidden" role="alert">
+          <div class="banner-title">Unable to analyze input</div>
+          <div id="error-message"></div>
+        </div>
+
+        <div id="warning-banner" class="banner banner-warning hidden" role="status">
+          <div id="warning-title" class="banner-title">Excluded non-standard characters</div>
+          <div id="warning-message"></div>
+          <div id="excluded-chips" class="excluded-chips"></div>
+        </div>
+
+        <div id="chart-lib-warning" class="banner banner-warning hidden" role="status">
+          Chart.js could not be loaded (check internet connection). Numeric tables and calculations remain fully functional.
+        </div>
+
+        <!-- =================================================
+             PANEL 1: OVERVIEW (Bento layout matching screenshot)
+             ================================================= -->
+        <section id="panel-overview" class="view-panel" aria-label="Overview dashboard">
+          <div id="overview-empty" class="card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Ready to Analyze a Protein Sequence</h2>
+                <p class="card-subtitle">Select an example protein or go to Sequence Input to paste FASTA / upload a file.</p>
+              </div>
+              <div class="controls-row">
+                <button id="btn-ov-go-input" class="btn btn-primary btn-sm" type="button">Paste / Upload Sequence</button>
+                <button id="btn-ov-load-ubiq" class="btn btn-sm" type="button">Load Ubiquitin (76 aa)</button>
+                <button id="btn-ov-load-35k" class="btn btn-sm" type="button">Load 35,000-aa Demo</button>
+              </div>
+            </div>
+          </div>
+
+          <div id="overview-bento" class="overview-bento hidden">
+            <!-- Left Hero 3D Stage + Bottom Strip -->
+            <div class="overview-left-col">
+              <div class="card hero-stage-card">
+                <div class="stage-top-bar">
+                  <div class="segmented" id="overview-3d-mode" role="tablist" aria-label="Overview 3D mode">
+                    <button type="button" data-mode="formation" class="active">3D Formation</button>
+                    <button type="button" data-mode="structure">Real Structure</button>
+                  </div>
+                  <span id="overview-3d-badge" class="disclaimer-pill">Illustrative model, not a predicted structure</span>
+                </div>
+
+                <!-- Shared 3D Slot for Overview (moves #sim-viewport or #struct-viewport-wrap here) -->
+                <div id="overview-3d-slot"></div>
+
+                <!-- Compact Simulation Transport Bar (when Formation tab active in Overview) -->
+                <div id="overview-sim-bar" class="sim-controls">
+                  <button id="btn-ov-play" class="btn btn-sm" type="button">Pause</button>
+                  <button id="btn-ov-restart" class="btn btn-sm" type="button">Restart</button>
+                  <div class="sim-scrub-wrap">
+                    <input id="ov-scrub" type="range" min="1" max="100" step="1" value="1" aria-label="Chain progress" />
+                    <span id="ov-count-pill" class="pill mono">0 / 0</span>
+                  </div>
+                  <button id="btn-ov-reveal" class="btn btn-primary btn-sm hidden" type="button">
+                    Complete &amp; Reveal
+                  </button>
+                </div>
+              </div>
+
+              <!-- Bottom 3 Mini-Panels (modeled after Markers / Enriched Pathways / Summary) -->
+              <div class="overview-bottom-strip analysis-locked-wrap">
+                <div class="mini-panel">
+                  <div class="mini-panel-head">
+                    <h3>Top Residues</h3>
+                    <button class="btn-link" data-jump="composition" type="button">View all &rsaquo;</button>
+                  </div>
+                  <table class="mini-table">
+                    <thead>
+                      <tr><th>AA</th><th class="num-col">Count</th><th class="num-col">Share</th></tr>
+                    </thead>
+                    <tbody id="ov-top-residues"></tbody>
+                  </table>
+                </div>
+
+                <div class="mini-panel">
+                  <div class="mini-panel-head">
+                    <h3>Secondary Metrics</h3>
+                    <button class="btn-link" data-jump="methods" type="button">Methods &rsaquo;</button>
+                  </div>
+                  <table class="mini-table">
+                    <tbody>
+                      <tr><td>Net Charge (pH <span id="ov-ph-label">7.0</span>)</td><td id="ov-charge" class="num-col">—</td></tr>
+                      <tr><td>Aliphatic Index</td><td id="ov-aliphatic" class="num-col">—</td></tr>
+                      <tr><td>Excluded Chars</td><td id="ov-excluded" class="num-col">0</td></tr>
+                      <tr><td>Hydropathy Window</td><td id="ov-win-label" class="num-col">9 aa</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <div class="mini-panel">
+                  <div class="mini-panel-head">
+                    <h3>Sequence Summary</h3>
+                    <button class="btn-link" data-jump="structure" type="button">3D PDB &rsaquo;</button>
+                  </div>
+                  <p id="ov-summary-text" class="hint-text" style="margin: 0;"></p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right Analytics Column (locked until full chain is depicted) -->
+            <div class="overview-right-col analysis-locked-wrap">
+              <div id="overview-lock-overlay" class="lock-overlay hidden">
+                <h3>Synthesizing Long Polypeptide Chain&hellip;</h3>
+                <p id="lock-overlay-msg">
+                  Depicting residue-by-residue formation in 3D before revealing composition and physicochemical analysis.
+                </p>
+                <button id="btn-lock-reveal" class="btn btn-primary btn-sm" type="button">
+                  Complete Chain &amp; Reveal Analysis
+                </button>
+              </div>
+
+              <!-- Top-Right: Group Composition + Bar Chart -->
+              <div class="card">
+                <div class="card-header" style="margin-bottom: 0.55rem;">
+                  <div>
+                    <h2 class="card-title">Group Composition</h2>
+                    <p id="ov-group-model-name" class="card-subtitle">Side-chain property</p>
+                  </div>
+                  <button class="btn-link" data-jump="groups" type="button">Switch model &rsaquo;</button>
+                </div>
+                <div class="overview-comp-body">
+                  <div id="ov-group-legend" class="compact-legend-list"></div>
+                  <div class="chart-box-sm">
+                    <canvas id="chart-overview-comp" aria-label="Overview group composition chart"></canvas>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Mid-Right: 4-Tile Insights Grid -->
+              <div class="card">
+                <div class="card-header" style="margin-bottom: 0.55rem;">
+                  <div>
+                    <h2 class="card-title">Physicochemical Insights</h2>
+                    <p class="card-subtitle">EMBOSS pKa &amp; Kyte-Doolittle metrics</p>
+                  </div>
+                  <button class="btn-link" data-jump="composition" type="button">Full table &rsaquo;</button>
+                </div>
+                <div class="insights-grid-4">
+                  <div class="kpi-tile">
+                    <span class="kpi-label">Length</span>
+                    <span id="ov-stat-length" class="kpi-val">—</span>
+                    <span id="ov-stat-length-sub" class="kpi-sub">valid aa</span>
+                  </div>
+                  <div class="kpi-tile">
+                    <span class="kpi-label">Mol. Weight</span>
+                    <span id="ov-stat-mw" class="kpi-val">—</span>
+                    <span id="ov-stat-mw-sub" class="kpi-sub">kDa</span>
+                  </div>
+                  <div class="kpi-tile">
+                    <span class="kpi-label">Isoelectric (pI)</span>
+                    <span id="ov-stat-pi" class="kpi-val">—</span>
+                    <span class="kpi-sub">EMBOSS pKa</span>
+                  </div>
+                  <div class="kpi-tile">
+                    <span class="kpi-label">GRAVY</span>
+                    <span id="ov-stat-gravy" class="kpi-val">—</span>
+                    <span id="ov-stat-gravy-sub" class="kpi-sub">mean KD</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Bottom-Right: Hydrophobicity Profile Curve -->
+              <div class="card">
+                <div class="card-header" style="margin-bottom: 0.5rem;">
+                  <div>
+                    <h2 class="card-title">Hydrophobicity Profile</h2>
+                    <p class="card-subtitle">Kyte-Doolittle sliding window</p>
+                  </div>
+                  <button class="btn-link" data-jump="hydrophobicity" type="button">View details &rsaquo;</button>
+                </div>
+                <div class="chart-box-sm">
+                  <canvas id="chart-overview-hydro" aria-label="Overview hydrophobicity chart"></canvas>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- =================================================
+             PANEL 2: SEQUENCE INPUT
+             ================================================= -->
+        <section id="panel-input" class="view-panel hidden" aria-label="Sequence input">
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Sequence Input &amp; Validation</h2>
+                <p class="card-subtitle">Paste raw residues or FASTA/multi-FASTA, drag &amp; drop a file, or pick an example protein.</p>
+              </div>
+              <div class="input-toolbar-group">
+                <label for="example-select" class="hint-text">Load example:</label>
+                <select id="example-select" class="select">
+                  <option value="">-- Choose test protein --</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="input-toolbar">
+              <div class="input-toolbar-group">
+                <button id="btn-upload-file" class="btn" type="button">Upload FASTA / TXT</button>
+                <input id="file-input" class="file-input-hidden" type="file" accept=".fasta,.fa,.txt,.faa,text/plain" />
+                <span id="file-name-pill" class="pill hidden"></span>
+              </div>
+              <div class="spacer"></div>
+              <div class="input-toolbar-group">
+                <button id="btn-clear" class="btn" type="button">Clear</button>
+                <button id="btn-analyze" class="btn btn-primary" type="button">Analyze Sequence</button>
+              </div>
+            </div>
+
+            <textarea
+              id="seq-input"
+              class="seq-textarea"
+              spellcheck="false"
+              placeholder="Paste amino acid sequence or FASTA here (e.g. >1UBQ&#10;MQIFVKTLTGKTITLEVEPSDTIENVKAKIQDKEGIPPDQQRLIFAGKQLEDGRTLSDYNIQKESTLHLVLRLRGG)&#10;Or drag & drop a .fasta / .fa / .txt file."
+              aria-label="Protein sequence input"
+            ></textarea>
+
+            <div class="input-footer">
+              <span class="hint-text">Tip: Press <span class="mono">Ctrl + Enter</span> to run analysis. Digits, whitespace, and FASTA headers are stripped automatically.</span>
+              <span id="raw-char-count" class="hint-text mono">0 characters in input</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- =================================================
+             PANEL 3: 3D FORMATION SIMULATION
+             ================================================= -->
+        <section id="panel-formation" class="view-panel hidden" aria-label="3D polypeptide formation simulation">
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">3D Polypeptide Formation Simulation</h2>
+                <p class="card-subtitle">Translation-style residue-by-residue growth colored by the active grouping model. Drag to orbit, scroll to zoom.</p>
+              </div>
+              <div class="controls-row">
+                <span class="disclaimer-pill">Illustrative model, not a predicted structure</span>
+                <div class="segmented" id="sim-model-switcher" role="tablist" aria-label="Simulation grouping model"></div>
+              </div>
+            </div>
+
+            <div class="stage-top-bar" style="margin-bottom: 0.65rem;">
+              <span id="sim-status-text" class="hint-text">Load a sequence to simulate polypeptide chain formation.</span>
+              <button id="btn-sim-reveal" class="btn btn-primary btn-sm hidden" type="button">
+                Complete Chain &amp; Reveal Analysis
+              </button>
+            </div>
+
+            <div id="sim-webgl-warning" class="banner banner-warning hidden" role="status" style="margin-bottom: 0.75rem;">
+              Three.js / WebGL 3D rendering is unavailable in this environment. Numeric analysis remains unlocked.
+            </div>
+
+            <!-- Dedicated Formation 3D Slot (shared #sim-viewport element moves here when active) -->
+            <div id="formation-3d-slot">
+              <div id="sim-viewport" class="viewport-3d viewport-3d-tall" aria-label="Interactive 3D polypeptide formation viewport">
+                <div id="sim-empty-overlay" class="empty-3d-overlay">
+                  Analyze a sequence to watch its polypeptide chain form in 3D.
+                </div>
+              </div>
+            </div>
+
+            <div class="sim-controls" style="margin-top: 0.75rem;">
+              <button id="btn-sim-play" class="btn btn-sm" type="button">Pause</button>
+              <button id="btn-sim-restart" class="btn btn-sm" type="button">Restart</button>
+              <button id="btn-sim-reset-cam" class="btn btn-sm" type="button">Reset Camera</button>
+              <div class="controls-row">
+                <label for="sim-speed" class="hint-text">Speed: <strong id="sim-speed-val" class="mono">1.0x</strong></label>
+                <input id="sim-speed" type="range" min="0.25" max="8" step="0.25" value="1" />
+              </div>
+              <div class="sim-scrub-wrap">
+                <label for="sim-scrub" class="hint-text">Chain:</label>
+                <input id="sim-scrub" type="range" min="1" max="100" step="1" value="1" />
+                <span id="sim-count-pill" class="pill mono">0 / 0</span>
+              </div>
+            </div>
+
+            <div id="sim-legend" class="sim-legend-inline" style="margin-top: 0.65rem;"></div>
+          </div>
+        </section>
+
+        <!-- =================================================
+             PANEL 4: COMPOSITION & SUMMARY PROPERTIES
+             ================================================= -->
+        <section id="panel-composition" class="view-panel hidden" aria-label="Amino acid composition">
+          <div class="summary-grid-6">
+            <div class="stat-card">
+              <span class="stat-label">Length</span>
+              <span id="stat-length" class="stat-value">—</span>
+              <span id="stat-length-sub" class="stat-sub">—</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label">Molecular Weight</span>
+              <span id="stat-mw" class="stat-value">—</span>
+              <span id="stat-mw-sub" class="stat-sub">—</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label">Isoelectric Point (pI)</span>
+              <span id="stat-pi" class="stat-value">—</span>
+              <span class="stat-sub">EMBOSS pKa (differs slightly from ExPASy)</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label">Net Charge</span>
+              <span id="stat-charge" class="stat-value">—</span>
+              <div class="ph-inline">
+                <label for="ph-input" class="stat-sub">at pH</label>
+                <input id="ph-input" class="input-control mono" type="number" min="0" max="14" step="0.1" value="7.0" />
+              </div>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label">GRAVY</span>
+              <span id="stat-gravy" class="stat-value">—</span>
+              <span id="stat-gravy-sub" class="stat-sub">Kyte-Doolittle mean</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label">Aliphatic Index</span>
+              <span id="stat-aliphatic" class="stat-value">—</span>
+              <span class="stat-sub">Ikai (1980)</span>
+            </div>
+          </div>
+
+          <div class="two-col-grid">
+            <div class="card">
+              <div class="card-header">
+                <div>
+                  <h2 class="card-title">20-Residue Distribution</h2>
+                  <p class="card-subtitle">Bars colored by active grouping model; order mirrors table sort.</p>
+                </div>
+                <button id="btn-png-composition" class="btn btn-sm" type="button">Download PNG</button>
+              </div>
+              <div class="chart-box">
+                <canvas id="chart-composition" aria-label="Amino acid composition bar chart"></canvas>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-header">
+                <div>
+                  <h2 class="card-title">Sortable Composition Table</h2>
+                  <p class="card-subtitle">Click column headers to sort ascending/descending.</p>
+                </div>
+              </div>
+              <div class="table-wrap">
+                <table class="comp-table" id="comp-table">
+                  <thead>
+                    <tr>
+                      <th class="sortable" data-sort="code">Residue <span class="sort-ind"></span></th>
+                      <th class="sortable" data-sort="name">Name <span class="sort-ind"></span></th>
+                      <th class="sortable num-col" data-sort="count">Count <span class="sort-ind"></span></th>
+                      <th class="sortable num-col" data-sort="percent">% <span class="sort-ind"></span></th>
+                      <th class="sortable num-col" data-sort="mass">Mass (Da) <span class="sort-ind"></span></th>
+                      <th class="sortable num-col" data-sort="kd">KD <span class="sort-ind"></span></th>
+                    </tr>
+                  </thead>
+                  <tbody id="comp-tbody"></tbody>
+                  <tfoot id="comp-tfoot"></tfoot>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- =================================================
+             PANEL 5: GROUP MODELS
+             ================================================= -->
+        <section id="panel-groups" class="view-panel hidden" aria-label="Grouping models breakdown">
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Switchable Amino-Acid Grouping Models</h2>
+                <p id="group-model-desc" class="card-subtitle">Switch model to update group breakdown, bar colors, and 3D views simultaneously.</p>
+              </div>
+              <div class="controls-row">
+                <div class="segmented" id="group-model-switcher" role="tablist" aria-label="Grouping models"></div>
+                <button id="btn-png-group" class="btn btn-sm" type="button">Download PNG</button>
+              </div>
+            </div>
+
+            <div class="two-col-grid" style="align-items: center;">
+              <div class="chart-box">
+                <canvas id="chart-group" aria-label="Amino acid group breakdown donut chart"></canvas>
+              </div>
+              <div id="group-legend" class="group-legend"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- =================================================
+             PANEL 6: HYDROPHOBICITY PROFILE
+             ================================================= -->
+        <section id="panel-hydrophobicity" class="view-panel hidden" aria-label="Hydrophobicity profile">
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Kyte-Doolittle Hydrophobicity Profile</h2>
+                <p class="card-subtitle">Sliding-window mean hydropathy along the sequence (&gt;0 hydrophobic, &lt;0 hydrophilic).</p>
+              </div>
+              <div class="controls-row">
+                <label for="window-slider" class="hint-text">
+                  Window: <strong id="window-value" class="mono">9</strong> aa
+                </label>
+                <input id="window-slider" type="range" min="5" max="21" step="1" value="9" />
+                <span id="profile-meta-pill" class="pill">—</span>
+                <button id="btn-png-hydro" class="btn btn-sm" type="button">Download PNG</button>
+              </div>
+            </div>
+            <div id="profile-note" class="banner banner-info hidden" style="margin-bottom: 0.75rem;"></div>
+            <div class="chart-box-tall">
+              <canvas id="chart-hydrophobicity" aria-label="Hydrophobicity sliding window chart"></canvas>
+            </div>
+          </div>
+        </section>
+
+        <!-- =================================================
+             PANEL 7: REAL 3D STRUCTURE VIEWER
+             ================================================= -->
+        <section id="panel-structure" class="view-panel hidden" aria-label="Real 3D structure viewer">
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Real 3D Structure Viewer (3Dmol.js)</h2>
+                <p class="card-subtitle">Load experimental coordinates from RCSB PDB, AlphaFold DB predictions by UniProt accession, or fold short sequences (&le;400 aa) via ESMFold.</p>
+              </div>
+              <span id="struct-source-pill" class="source-pill hidden"></span>
+            </div>
+
+            <div class="struct-toolbar" style="margin-bottom: 0.75rem;">
+              <select id="struct-mode" class="select" aria-label="Structure source">
+                <option value="pdb">PDB ID (RCSB PDB)</option>
+                <option value="uniprot">UniProt Accession (AlphaFold DB)</option>
+                <option value="sequence">Pasted Sequence (ESMFold &le;400 aa)</option>
+              </select>
+              <input
+                id="struct-id-input"
+                class="input-control mono"
+                type="text"
+                placeholder="e.g. 1UBQ"
+                aria-label="PDB ID or UniProt Accession"
+              />
+              <button id="btn-struct-load" class="btn btn-primary" type="button">Load Structure</button>
+              <div class="spacer"></div>
+              <div class="segmented" id="struct-style-switcher" role="tablist" aria-label="Structure representation">
+                <button type="button" data-style="cartoon" class="active">Cartoon</button>
+                <button type="button" data-style="stick">Stick</button>
+                <button type="button" data-style="surface">Surface</button>
+              </div>
+              <button id="btn-struct-spin" class="btn btn-sm" type="button" aria-pressed="false">Spin: Off</button>
+              <button id="btn-struct-reset" class="btn btn-sm" type="button">Reset View</button>
+            </div>
+
+            <div id="struct-error-banner" class="banner banner-error hidden" role="alert" style="margin-bottom: 0.75rem;">
+              <div class="banner-title">Real structure unavailable for this input</div>
+              <div id="struct-error-message"></div>
+            </div>
+
+            <!-- Dedicated Real Structure Slot (shared #struct-viewport-wrap moves here when active) -->
+            <div id="structure-3d-slot">
+              <div class="viewport-3d viewport-3d-tall" id="struct-viewport-wrap">
+                <div id="struct-viewport" style="width: 100%; height: 100%;"></div>
+                <div id="struct-empty-overlay" class="empty-3d-overlay">
+                  Choose a PDB ID (e.g. 1UBQ), UniProt accession (e.g. P0CG48), or fold the analyzed sequence (&le;400 aa) and click "Load Structure".
+                </div>
+                <div id="struct-spinner" class="spinner-overlay hidden">
+                  <div class="spinner-ring"></div>
+                  <span id="struct-spinner-text">Fetching 3D coordinates (timeout 30 s)...</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- =================================================
+             PANEL 8: METHODS & EXPORT
+             ================================================= -->
+        <section id="panel-methods" class="view-panel hidden" aria-label="Methods and export">
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Bioinformatics Methods &amp; Formulas</h2>
+                <p class="card-subtitle">All calculations run client-side in O(n) time with zero server dependencies.</p>
+              </div>
+              <div class="controls-row">
+                <button id="btn-methods-export-csv" class="btn btn-primary btn-sm" type="button" disabled>Download CSV Report</button>
+              </div>
+            </div>
+            <div class="methods-grid">
+              <div class="methods-block">
+                <h3>Validation &amp; Cleaning</h3>
+                <p>
+                  FASTA headers (<span class="mono">&gt;...</span>), whitespace, line breaks, and digits are stripped and letters uppercased.
+                  Only the 20 standard amino acids (<span class="mono">ACDEFGHIKLMNPQRSTVWY</span>) enter calculations.
+                  Ambiguous or non-standard characters (<span class="mono">B, Z, X, U, O, J, *, -</span>, etc.) are reported with counts and excluded.
+                </p>
+              </div>
+              <div class="methods-block">
+                <h3>Molecular Weight &amp; Isoelectric Point</h3>
+                <ul>
+                  <li><strong>MW (Da):</strong> Sum of average residue masses + <span class="mono">18.01524</span> Da (H<sub>2</sub>O).</li>
+                  <li><strong>pI &amp; Net Charge:</strong> Henderson-Hasselbalch bisection (<span class="mono">[0, 14]</span>) using EMBOSS pKa values (N-term 8.6, C-term 3.6, K 10.8, R 12.5, H 6.5, D 3.9, E 4.1, C 8.5, Y 10.1).</li>
+                  <li><em>Note:</em> pI may differ slightly from ExPASy ProtParam, which uses Bjellqvist's residue-specific pKa set.</li>
+                </ul>
+              </div>
+              <div class="methods-block">
+                <h3>Hydropathy, Aliphatic Index &amp; 3D</h3>
+                <ul>
+                  <li><strong>GRAVY:</strong> Mean Kyte-Doolittle (1982) hydropathy across all valid residues.</li>
+                  <li><strong>Hydrophobicity Profile:</strong> Sliding window (5–21, default 9); downsampled to &le;2,000 peak-preserving min/max points for long sequences.</li>
+                  <li><strong>Aliphatic Index:</strong> Ikai (1980): <span class="mono">X(A) + 2.9·X(V) + 3.9·(X(I) + X(L))</span>.</li>
+                  <li><strong>Instability Index:</strong> Omitted rather than approximated (full 400-entry Guruprasad 1990 DIWV matrix not loaded).</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+</body>
+</html>
